@@ -3,24 +3,28 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "main": "./src/index.ts",
+
+  "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+
   "exports": {
     ".": {
-      "import": "./src/index.ts"
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
     }
   },
-  "files": [
-    "dist"
-  ],
-  "scripts": {
-    "build":"tsup src/index.ts --format esm --dts"
 
+  "files": ["dist"],
+
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts"
   },
+
   "dependencies": {
     "dotenv": "^17.3.1",
     "pg": "^8.18.0"
   },
+
   "devDependencies": {
     "@types/node": "^25.2.0",
     "@types/pg": "^8.16.0",
