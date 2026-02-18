@@ -24,7 +24,7 @@ import { cors } from 'hono/cors'
 
 import { z } from 'zod'
 
-import { getDb, todos, user } from '@repo/db'
+import { getDb, todos, user } from '../../db/src'
 import { eq, and, sql } from 'drizzle-orm'
 
 // Schemas
