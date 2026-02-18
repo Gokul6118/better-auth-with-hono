@@ -36,8 +36,7 @@ import {
 
 import { todoFormSchema } from './../../schemas/todo.schema'
 
-// ================= CONFIG =================
-
+1
 const JWT_SECRET = process.env.JWT_SECRET!
 const COOKIE_SECRET = process.env.COOKIE_SECRET!
 
