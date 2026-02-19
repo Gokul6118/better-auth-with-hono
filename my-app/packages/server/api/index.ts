@@ -168,9 +168,9 @@ app.get('/admin/user-count', async (c) => {
   return c.json({ totalUsers: result[0].count })
 })
 
-
+// GET todos - requires authentication
 app.get(
-  '/',
+  '/todos',
   describeRoute({
     description: 'Get user todos',
     responses: {
@@ -192,7 +192,7 @@ app.get(
 
 // CREATE TODO
 app.post(
-  '/',
+  '/todos',
   describeRoute({
     description: 'Create todo',
     responses: {
@@ -231,7 +231,7 @@ app.post(
 )
 
 app.put(
-  '/:id',
+  '/todos/:id',
 
   validator('param', z.object({ id: z.string() })),
   validator('json', todoFormSchema),
@@ -269,7 +269,7 @@ app.put(
 
 // PATCH TODO
 app.patch(
-  '/:id',
+  '/todos/:id',
 
   describeRoute({
     description: 'Patch todo',
@@ -313,7 +313,7 @@ app.patch(
 
 // DELETE TODO
 app.delete(
-  '/:id',
+  '/todos/:id',
 
   validator('param', z.object({ id: z.string() })),
 
