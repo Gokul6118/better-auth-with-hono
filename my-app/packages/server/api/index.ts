@@ -10,7 +10,8 @@ import {
 import bcrypt from 'bcrypt'
 import jwt from 'jsonwebtoken'
 
-import { auth } from './auth'
+import { betterAuth } from 'better-auth'
+import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 
 import {
   describeRoute,
@@ -24,7 +25,7 @@ import { cors } from 'hono/cors'
 
 import { z } from 'zod'
 
-import { getDb, todos, user } from '@repo/db'
+import { getDb, todos, user, session, account } from '@repo/db'
 import { eq, and, sql } from 'drizzle-orm'
 
 import { handle } from 'hono/vercel'
@@ -36,6 +37,50 @@ import {
 } from '@repo/schemas'
 
 import { todoFormSchema } from "@repo/schemas"
+
+// ==================== AUTH SETUP ====================
+const AUTH_SECRET = process.env.BETTER_AUTH_SECRET
+const APP_URL = process.env.APP_URL
+
+console.log("🔐 AUTH_SECRET:", AUTH_SECRET)
+console.log("🌐 APP_URL:", APP_URL)
+
+if (!AUTH_SECRET) {
+  throw new Error(
+    "❌ BETTER_AUTH_SECRET is missing. Check your root .env file."
+  )
+}
+
+if (!APP_URL) {
+  throw new Error(
+    "❌ APP_URL is missing. Check your root .env file."
+  )
+}
+
+let dbAuth: any
+try {
+  dbAuth = getDb()
+} catch (error) {
+  console.error('❌ Database initialization failed for auth:', error)
+}
+
+const auth = betterAuth({
+  database: drizzleAdapter(dbAuth, {
+    provider: "pg",
+    schema: {
+      user,
+      session,
+      account,
+    },
+  }),
+  secret: AUTH_SECRET,
+  baseURL: APP_URL,
+  emailAndPassword: {
+    enabled: true,
+  },
+})
+
+// ==================== APP SETUP ====================
 
 const JWT_SECRET = process.env.JWT_SECRET!
 const COOKIE_SECRET = process.env.COOKIE_SECRET!

@@ -12,12 +12,9 @@ export default defineConfig({
   splitting: false,
   bundle: true,
 
-  // Bundle all workspace packages and local modules
+  // Bundle all workspace packages
   noExternal: ['@repo/db', '@repo/schemas'],
 
   // Native deps only
   external: ['pg'],
-  
-  // Ensure local imports are resolved correctly
-  shims: true,
 })
