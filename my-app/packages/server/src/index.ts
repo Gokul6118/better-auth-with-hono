@@ -48,7 +48,7 @@ type Variables = {
   role: string
 }
 
-// ================= APP =================
+
 
 const app = new Hono<{ Variables: Variables }>().basePath('/api')
 
