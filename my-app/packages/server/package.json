@@ -3,7 +3,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch --env-file ../../.env api/index.ts",
-    "build": "tsup",
+    "build": "echo 'skip serverless build",
     "start": "node dist/index.js"
   },
   "exports": {
