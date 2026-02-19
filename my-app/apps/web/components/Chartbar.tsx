@@ -25,11 +25,8 @@ type Todo = {
 };
 
 
-const API_URL = "https://localhost:3000/api";
-
-
 const getTodos = async (): Promise<Todo[]> => {
-  const res = await fetch(`${API_URL}/`);
+  const res = await fetch(`/api/todos`);
   if (!res.ok) throw new Error("Failed to fetch todos");
   return res.json();
 };
