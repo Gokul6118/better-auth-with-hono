@@ -1,14 +1,12 @@
 {
   "name": "@repo/server",
   "type": "module",
-
- "scripts": {
-  "build": "tsc",
-  "start": "node dist/index.js"
-},
-
-
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
   "dependencies": {
+    "@hono/node-server": "^1.19.9",
     "@hono/standard-validator": "^0.2.2",
     "@repo/db": "workspace:*",
     "@repo/schemas": "workspace:*",
@@ -28,7 +26,6 @@
     "zod-openapi": "4",
     "zod-to-json-schema": "^3.25.1"
   },
-
   "devDependencies": {
     "@types/bcrypt": "^6.0.0",
     "@types/jsonwebtoken": "^9.0.10",
