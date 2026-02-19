@@ -1,132 +1,30 @@
 import { Hono } from 'hono'
 import { logger } from 'hono/logger'
-import { serve } from '@hono/node-server'
-import {
-  setSignedCookie,
-  deleteCookie,
-  getSignedCookie,
-} from 'hono/cookie'
-
-import bcrypt from 'bcrypt'
-import jwt from 'jsonwebtoken'
+import { cors } from 'hono/cors'
+import { z } from 'zod'
 
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 
 import {
   describeRoute,
-  resolver,
   validator,
   openAPIRouteHandler,
 } from 'hono-openapi'
 
 import { Scalar } from '@scalar/hono-api-reference'
-import { cors } from 'hono/cors'
-
-import { z } from 'zod'
-
-// ==================== SCHEMAS ====================
-const signupSchema = z.object({
-  email: z
-    .string()
-    .email('Invalid email'),
-
-  password: z
-    .string()
-    .min(6, 'Password must be at least 6 chars'),
-})
-
-const loginSchema = z.object({
-  email: z
-    .string()
-    .email('Invalid email'),
-
-  password: z
-    .string()
-    .min(6, 'Password must be at least 6 chars'),
-})
-
-const patchTodoSchema = z.object({
-  status: z.enum([
-    'todo',
-    'backlog',
-    'inprogress',
-    'done',
-    'cancelled',
-  ]).optional(),
-
-  text: z.string().optional(),
-  description: z.string().optional(),
-})
-
-const todoFormSchema = z
-  .object({
-    text: z.string().min(1, "Text is required"),
-
-    description: z
-      .string()
-      .min(5, "Description required")
-      .max(100, "Description too long"),
-
-    status: z.enum([
-      "todo",
-      "backlog",
-      "inprogress",
-      "done",
-      "cancelled",
-    ]),
-
-    startDate: z
-      .string()
-      .min(1, "Start date is required"),
-
-    startTime: z
-      .string()
-      .min(1, "Start time is required"),
-
-    endDate: z
-      .string()
-      .min(1, "End date is required"),
-
-    endTime: z
-      .string()
-      .min(1, "End time is required"),
-  })
-  .superRefine((data, ctx) => {
-    const start = new Date(
-      `${data.startDate}T${data.startTime}`
-    );
-
-    const end = new Date(
-      `${data.endDate}T${data.endTime}`
-    );
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    if (start < today) {
-      ctx.addIssue({
-        path: ["startDate"],
-        message: "Only today or future dates allowed",
-        code: z.ZodIssueCode.custom,
-      });
-    }
-
-    if (end < today) {
-      ctx.addIssue({
-        path: ["endDate"],
-        message: "End date must be today or later",
-        code: z.ZodIssueCode.custom,
-      });
-    }
-  })
-
-type TodoForm = z.infer<typeof todoFormSchema>
 
 import { getDb, todos, user, session, account } from '@repo/db'
-import { eq, and, sql } from 'drizzle-orm'
+import { eq, sql, and } from 'drizzle-orm'
 
 import { handle } from 'hono/vercel'
+
+import {
+  signupSchema,
+  loginSchema,
+  patchTodoSchema,
+  todoFormSchema,
+} from '@repo/schemas'
 
 // ==================== AUTH SETUP ====================
 const AUTH_SECRET = process.env.BETTER_AUTH_SECRET
@@ -170,53 +68,69 @@ const auth = betterAuth({
   },
 })
 
-// ==================== APP SETUP ====================
+// ================= DB =================
 
-const JWT_SECRET = process.env.JWT_SECRET!
-const COOKIE_SECRET = process.env.COOKIE_SECRET!
+const db = getDb()
 
-let db: any
-
-try {
-  db = getDb()
-} catch (error) {
-  console.error('❌ Database initialization failed:', error)
-  db = null
-}
+// ================= TYPES =================
 
 type Variables = {
-  userId: number
-  role: string
+  userId: string // UUID only
 }
 
-
+// ================= APP =================
 
 const app = new Hono<{ Variables: Variables }>().basePath('/api')
 
+// ================= LOGGER =================
+
 app.use('*', logger())
+
+// ================= CORS =================
 
 app.use(
   '*',
   cors({
-    origin: 'https://your-frontend-domain.com',
+    origin: [
+      'http://localhost:3001',
+      'https://better-auth-app-web.vercel.app',
+    ],
+    allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
   })
 )
 
-// Better Auth handler
-app.on(['POST', 'GET'], 'auth/*', (c) => {
-  return auth.handler(c.req.raw)
-})
+// ================= PREFLIGHT =================
 
-// ================= SCHEMAS =================
+app.options('*', (c) => c.body(null, 204))
 
-const idParamSchema = z.object({
-  id: z.string(),
-})
+// ================= AUTH HANDLER =================
 
-// ================= ROUTES =================
+app.all('/auth/*', (c) => auth.handler(c.req.raw))
 
-// Admin: User count
+
+app.use("*", async (c, next) => {
+  if (c.req.path.startsWith("/api/auth")) {
+    return next();
+  }
+
+  const session = await auth.api.getSession({
+    headers: c.req.raw.headers, 
+  });
+
+
+  if (!session) {
+    return c.json({ message: "Login required" }, 401);
+  }
+
+  c.set("userId", session.user.id);
+
+  await next();
+});
+
+
+
 app.get('/admin/user-count', async (c) => {
   const result = await db
     .select({ count: sql<number>`count(*)` })
@@ -225,23 +139,13 @@ app.get('/admin/user-count', async (c) => {
   return c.json({ totalUsers: result[0].count })
 })
 
-// Current user
-app.get('/me', (c) => {
-  return c.json({
-    id: c.get('userId'),
-    role: c.get('role'),
-  })
-})
 
 app.get(
   '/',
-
   describeRoute({
-    description: 'Get all todos for current user',
-
+    description: 'Get user todos',
     responses: {
-      200: { description: 'List of todos' },
-      401: { description: 'Unauthorized' },
+      200: { description: 'Todos list' },
     },
   }),
 
@@ -257,17 +161,14 @@ app.get(
   }
 )
 
-// CREATE
+// CREATE TODO
 app.post(
   '/',
-
   describeRoute({
     description: 'Create todo',
-
     responses: {
       201: { description: 'Created' },
       400: { description: 'Validation error' },
-      401: { description: 'Unauthorized' },
     },
   }),
 
@@ -281,13 +182,8 @@ app.post(
     const userId = c.get('userId')
     const body = c.req.valid('json')
 
-    const startAt = new Date(
-      `${body.startDate}T${body.startTime}`
-    )
-
-    const endAt = new Date(
-      `${body.endDate}T${body.endTime}`
-    )
+    const startAt = new Date(`${body.startDate}T${body.startTime}`)
+    const endAt = new Date(`${body.endDate}T${body.endTime}`)
 
     const [todo] = await db
       .insert(todos)
@@ -305,39 +201,19 @@ app.post(
   }
 )
 
-// UPDATE
 app.put(
   '/:id',
 
-  describeRoute({
-    description: 'Update todo',
-
-    responses: {
-      200: { description: 'Updated' },
-      404: { description: 'Not found' },
-    },
-  }),
-
-  validator('param', idParamSchema),
-
-  validator('json', todoFormSchema, (result, c) => {
-    if (!result.success) {
-      return c.json(result.error, 400)
-    }
-  }),
+  validator('param', z.object({ id: z.string() })),
+  validator('json', todoFormSchema),
 
   async (c) => {
-    const userId = c.get('userId')
     const { id } = c.req.valid('param')
     const body = c.req.valid('json')
+    const userId = c.get('userId')
 
-    const startAt = new Date(
-      `${body.startDate}T${body.startTime}`
-    )
-
-    const endAt = new Date(
-      `${body.endDate}T${body.endTime}`
-    )
+    const startAt = new Date(`${body.startDate}T${body.startTime}`)
+    const endAt = new Date(`${body.endDate}T${body.endTime}`)
 
     const [todo] = await db
       .update(todos)
@@ -355,64 +231,26 @@ app.put(
       .returning()
 
     if (!todo) {
-      return c.json({ message: 'Not found' }, 404)
+      return c.json({ message: 'Not found or unauthorized' }, 404)
     }
 
     return c.json({ success: true, data: todo })
   }
 )
 
-// DELETE
-app.delete(
-  '/:id',
-
-  describeRoute({
-    description: 'Delete todo',
-
-    responses: {
-      200: { description: 'Deleted' },
-      404: { description: 'Not found' },
-    },
-  }),
-
-  validator('param', idParamSchema),
-
-  async (c) => {
-    const userId = c.get('userId')
-    const { id } = c.req.valid('param')
-
-    const result = await db
-      .delete(todos)
-      .where(
-        and(
-          eq(todos.id, Number(id)),
-          eq(todos.userId, userId)
-        )
-      )
-
-    if (!result.rowCount) {
-      return c.json({ message: 'Not found' }, 404)
-    }
-
-    return c.json({ message: 'Deleted' })
-  }
-)
-
-// PATCH
+// PATCH TODO
 app.patch(
   '/:id',
 
   describeRoute({
     description: 'Patch todo',
-
     responses: {
-      200: { description: 'Updated successfully' },
-      400: { description: 'Validation error' },
+      200: { description: 'Updated' },
       404: { description: 'Not found' },
     },
   }),
 
-  validator('param', idParamSchema),
+  validator('param', z.object({ id: z.string() })),
 
   validator('json', patchTodoSchema, (result, c) => {
     if (!result.success) {
@@ -421,9 +259,9 @@ app.patch(
   }),
 
   async (c) => {
-    const userId = c.get('userId')
     const { id } = c.req.valid('param')
     const body = c.req.valid('json')
+    const userId = c.get('userId')
 
     const [todo] = await db
       .update(todos)
@@ -437,13 +275,37 @@ app.patch(
       .returning()
 
     if (!todo) {
-      return c.json({ message: 'Todo not found' }, 404)
+      return c.json({ message: 'Not found or unauthorized' }, 404)
     }
 
-    return c.json({
-      success: true,
-      data: todo,
-    })
+    return c.json({ success: true, data: todo })
+  }
+)
+
+// DELETE TODO
+app.delete(
+  '/:id',
+
+  validator('param', z.object({ id: z.string() })),
+
+  async (c) => {
+    const { id } = c.req.valid('param')
+    const userId = c.get('userId')
+
+    const result = await db
+      .delete(todos)
+      .where(
+        and(
+          eq(todos.id, Number(id)),
+          eq(todos.userId, userId)
+        )
+      )
+
+    if (!result.rowCount) {
+      return c.json({ message: 'Not found or unauthorized' }, 404)
+    }
+
+    return c.json({ message: 'Deleted successfully' })
   }
 )
 
@@ -459,17 +321,13 @@ app.get(
         version: '1.0.0',
         description: 'Hono + Zod + OpenAPI + Scalar',
       },
-
-      servers: [
-        {
-          url: 'http://localhost:3000',
-        },
-      ],
+      servers: [{ url: 'http://localhost:3000' }],
     },
   })
 )
 
-// Docs
+// ================= DOCS =================
+
 app.get(
   '/docs',
 
@@ -478,6 +336,10 @@ app.get(
   })
 )
 
+app.get('/', (c) => {
+  return c.json({ message: 'API Server is running', version: '1.0.0' })
+})
+
+// ================= SERVER =================
 
 export default handle(app)
-

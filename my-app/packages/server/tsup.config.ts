@@ -13,7 +13,7 @@ export default defineConfig({
   bundle: true,
 
   // Bundle all workspace packages
-  noExternal: ['@repo/db'],
+  noExternal: ['@repo/db', '@repo/schemas'],
 
   // Native deps only
   external: ['pg'],
