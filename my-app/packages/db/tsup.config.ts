@@ -5,7 +5,7 @@ export default defineConfig({
   format: ["esm"],
   dts: true,
   splitting: false,
-  sourcemap: false,
+  sourcemap: true,
   clean: true,
   external: ["drizzle-orm"],
   target: "node18",
