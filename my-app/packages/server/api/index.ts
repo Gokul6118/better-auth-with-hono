@@ -37,11 +37,17 @@ import {
 
 import { todoFormSchema } from "@repo/schemas"
 
-1
 const JWT_SECRET = process.env.JWT_SECRET!
 const COOKIE_SECRET = process.env.COOKIE_SECRET!
 
-const db = getDb()
+let db: any
+
+try {
+  db = getDb()
+} catch (error) {
+  console.error('❌ Database initialization failed:', error)
+  db = null
+}
 
 type Variables = {
   userId: number
