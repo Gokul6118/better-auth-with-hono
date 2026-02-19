@@ -119,8 +119,8 @@ app.all('/auth/*', (c) => auth.handler(c.req.raw))
 
 
 app.use("*", async (c, next) => {
-  // Skip auth check for these public routes
-  const publicPaths = ['/api/auth', '/api/health', '/api/admin/user-count']
+  // Skip auth check for these public routes (without /api prefix since we use basePath)
+  const publicPaths = ['/auth', '/health', '/admin/user-count']
   
   if (publicPaths.some(path => c.req.path.startsWith(path))) {
     return next();
@@ -345,10 +345,6 @@ app.get(
     url: '/api/openapi',
   })
 )
-
-app.get('/', (c) => {
-  return c.json({ message: 'API Server is running', version: '1.0.0' })
-})
 
 // ================= SERVER =================
 
