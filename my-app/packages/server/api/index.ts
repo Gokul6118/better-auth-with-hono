@@ -30,47 +30,64 @@ import {
 const AUTH_SECRET = process.env.BETTER_AUTH_SECRET
 const APP_URL = process.env.APP_URL
 
-console.log("🔐 AUTH_SECRET:", AUTH_SECRET)
+console.log("🔐 AUTH_SECRET:", AUTH_SECRET ? 'SET' : 'MISSING')
 console.log("🌐 APP_URL:", APP_URL)
 
 if (!AUTH_SECRET) {
-  throw new Error(
-    "❌ BETTER_AUTH_SECRET is missing. Check your root .env file."
-  )
+  console.error("❌ BETTER_AUTH_SECRET is missing")
 }
 
 if (!APP_URL) {
-  throw new Error(
-    "❌ APP_URL is missing. Check your root .env file."
-  )
+  console.error("❌ APP_URL is missing")
 }
 
-let dbAuth: any
-try {
-  dbAuth = getDb()
-} catch (error) {
-  console.error('❌ Database initialization failed for auth:', error)
-}
+let dbAuth: any = null
+let auth: any = null
 
-const auth = betterAuth({
-  database: drizzleAdapter(dbAuth, {
-    provider: "pg",
-    schema: {
-      user,
-      session,
-      account,
-    },
-  }),
-  secret: AUTH_SECRET,
-  baseURL: APP_URL,
-  emailAndPassword: {
-    enabled: true,
-  },
-})
+// Lazy initialize auth - only when needed
+function initAuth() {
+  if (auth) return auth
+  
+  try {
+    dbAuth = getDb()
+    auth = betterAuth({
+      database: drizzleAdapter(dbAuth, {
+        provider: "pg",
+        schema: {
+          user,
+          session,
+          account,
+        },
+      }),
+      secret: AUTH_SECRET,
+      baseURL: APP_URL,
+      emailAndPassword: {
+        enabled: true,
+      },
+    })
+    console.log("✅ Auth initialized")
+    return auth
+  } catch (error) {
+    console.error('❌ Auth initialization failed:', error)
+    return null
+  }
+}
 
 // ================= DB =================
 
-const db = getDb()
+let db: any = null
+
+function initDb() {
+  if (db) return db
+  try {
+    db = getDb()
+    console.log("✅ Database initialized")
+    return db
+  } catch (error) {
+    console.error('❌ Database initialization failed:', error)
+    return null
+  }
+}
 
 // ================= TYPES =================
 
@@ -127,7 +144,12 @@ app.use("*", async (c, next) => {
   // For all other routes that require auth
   if (c.req.path.startsWith('/admin') || c.req.path.startsWith('/todos')) {
     try {
-      const session = await auth.api.getSession({
+      const authInstance = initAuth();
+      if (!authInstance) {
+        return c.json({ message: "Auth not available" }, 503);
+      }
+
+      const session = await authInstance.api.getSession({
         headers: c.req.raw.headers, 
       });
 
@@ -176,7 +198,12 @@ app.all('/auth/*', (c) => auth.handler(c.req.raw))
 
 
 app.get('/admin/user-count', async (c) => {
-  const result = await db
+  const dbInstance = initDb()
+  if (!dbInstance) {
+    return c.json({ error: 'Database not available' }, 503)
+  }
+  
+  const result = await dbInstance
     .select({ count: sql<number>`count(*)` })
     .from(user)
 
@@ -195,8 +222,12 @@ app.get(
 
   async (c) => {
     const userId = c.get('userId')
+    const dbInstance = initDb()
+    if (!dbInstance) {
+      return c.json({ error: 'Database not available' }, 503)
+    }
 
-    const data = await db
+    const data = await dbInstance
       .select()
       .from(todos)
       .where(eq(todos.userId, userId))
@@ -225,11 +256,15 @@ app.post(
   async (c) => {
     const userId = c.get('userId')
     const body = c.req.valid('json')
+    const dbInstance = initDb()
+    if (!dbInstance) {
+      return c.json({ error: 'Database not available' }, 503)
+    }
 
     const startAt = new Date(`${body.startDate}T${body.startTime}`)
     const endAt = new Date(`${body.endDate}T${body.endTime}`)
 
-    const [todo] = await db
+    const [todo] = await dbInstance
       .insert(todos)
       .values({
         text: body.text,
@@ -255,11 +290,15 @@ app.put(
     const { id } = c.req.valid('param')
     const body = c.req.valid('json')
     const userId = c.get('userId')
+    const dbInstance = initDb()
+    if (!dbInstance) {
+      return c.json({ error: 'Database not available' }, 503)
+    }
 
     const startAt = new Date(`${body.startDate}T${body.startTime}`)
     const endAt = new Date(`${body.endDate}T${body.endTime}`)
 
-    const [todo] = await db
+    const [todo] = await dbInstance
       .update(todos)
       .set({
         ...body,
@@ -306,8 +345,12 @@ app.patch(
     const { id } = c.req.valid('param')
     const body = c.req.valid('json')
     const userId = c.get('userId')
+    const dbInstance = initDb()
+    if (!dbInstance) {
+      return c.json({ error: 'Database not available' }, 503)
+    }
 
-    const [todo] = await db
+    const [todo] = await dbInstance
       .update(todos)
       .set(body)
       .where(
@@ -335,8 +378,12 @@ app.delete(
   async (c) => {
     const { id } = c.req.valid('param')
     const userId = c.get('userId')
+    const dbInstance = initDb()
+    if (!dbInstance) {
+      return c.json({ error: 'Database not available' }, 503)
+    }
 
-    const result = await db
+    const result = await dbInstance
       .delete(todos)
       .where(
         and(
