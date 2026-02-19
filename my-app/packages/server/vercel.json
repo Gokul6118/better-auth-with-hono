@@ -1,6 +1,6 @@
 {
  "buildCommand": "pnpm --filter server build",
-  "outputDirectory": "api",
+  "outputDirectory": "dist",
    "routes": [
     {
       "src": "/(.*)",
