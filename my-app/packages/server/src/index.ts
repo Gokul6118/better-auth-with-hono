@@ -27,7 +27,8 @@ import { z } from 'zod'
 import { getDb, todos, user } from '@repo/db'
 import { eq, and, sql } from 'drizzle-orm'
 
-// Schemas
+import { handle } from 'hono/vercel'
+
 import {
   signupSchema,
   loginSchema,
@@ -339,4 +340,6 @@ app.get(
   })
 )
 
-export { app }
+
+export default handle(app)
+
