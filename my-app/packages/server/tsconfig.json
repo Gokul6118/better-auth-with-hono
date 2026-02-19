@@ -17,6 +17,6 @@
       "@repo/db": ["../packages/db/src"]
     }
   },
-  "include": ["src", "api"],
+  "include": ["api", "api"],
   "exclude": ["node_modules"]
 }

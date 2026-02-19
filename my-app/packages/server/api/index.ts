@@ -10,7 +10,7 @@ import {
 import bcrypt from 'bcrypt'
 import jwt from 'jsonwebtoken'
 
-import { auth } from './../auth'
+import { auth } from '../auth'
 
 import {
   describeRoute,
