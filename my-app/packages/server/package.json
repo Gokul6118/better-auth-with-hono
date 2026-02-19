@@ -2,10 +2,11 @@
   "name": "@repo/server",
   "type": "module",
 
-  "scripts": {
-    "dev": "tsx watch --env-file ../../.env api/index.ts",
-    "build": "echo skip serverless build"
-  },
+ "scripts": {
+  "build": "tsc",
+  "start": "node dist/index.js"
+},
+
 
   "dependencies": {
     "@hono/standard-validator": "^0.2.2",
