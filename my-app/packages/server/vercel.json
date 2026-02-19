@@ -1,10 +1,11 @@
 {
- "buildCommand": "pnpm --filter server build",
-  "outputDirectory": "dist",
-   "routes": [
+  "version": 2,
+  "buildCommand": "pnpm --filter @repo/server build",
+  "outputDirectory": "packages/server/dist",
+  "rewrites": [
     {
-      "src": "/(.*)",
-      "dest": "/dist/index.js"
+      "source": "/(.*)",
+      "destination": "packages/server/dist/index.js"
     }
   ]
 }
