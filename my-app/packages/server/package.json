@@ -26,7 +26,7 @@
     "pg": "^8.18.0",
     "postgres": "^3.4.8",
     "zod": "^3.21.4",
-    "tsup": "^8.5.1",
+    
     "zod-openapi": "4",
     "zod-to-json-schema": "^3.25.1"
   },
@@ -35,6 +35,7 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^20.19.31",
     "tsx": "^4.21.0",
+    "tsup": "^8.5.1",
     "typescript": "^5.9.3"
   }
 }
