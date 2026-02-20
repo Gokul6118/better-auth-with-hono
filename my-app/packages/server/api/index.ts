@@ -181,7 +181,7 @@ app.get('/', (c) => {
 // ================= HEALTH CHECK =================
 
 // Public endpoint - MUST RETURN IMMEDIATELY
-app.get('/health', (c) => {
+app.get('/health', (c) => {z
   const response = { 
     status: 'ok', 
     message: 'Server is healthy',
